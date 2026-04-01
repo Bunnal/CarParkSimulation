@@ -1,0 +1,163 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║       CAR PARK MANAGEMENT SIMULATION - DOCUMENTATION INDEX               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+📖 READING ORDER FOR DOCUMENTATION
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 1. GETTING_STARTED.txt                                                   │
+│    ├─ Quick introduction to the project                                  │
+│    ├─ Prerequisites check                                                │
+│    ├─ 3-step quick start guide                                           │
+│    └─ Basic usage instructions                                           │
+│                                                                           │
+│    📍 START HERE if you're new to the project                            │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 2. QUICK_START_GUIDE.md                                                  │
+│    ├─ Detailed step-by-step usage instructions                           │
+│    ├─ Explanation of UI elements                                         │
+│    ├─ Recommended test scenarios                                         │
+│    ├─ Understanding metrics and statistics                               │
+│    └─ Troubleshooting guide                                              │
+│                                                                           │
+│    📍 Read this to learn how to use the application                      │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 3. README.md                                                             │
+│    ├─ Complete project overview                                          │
+│    ├─ Feature list with descriptions                                     │
+│    ├─ Architecture explanation (MVC)                                     │
+│    ├─ Running instructions                                               │
+│    ├─ Testing scenarios                                                  │
+│    └─ Performance characteristics                                        │
+│                                                                           │
+│    📍 Main documentation with comprehensive information                  │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 4. ARCHITECTURE_DIAGRAM.txt                                              │
+│    ├─ Visual architecture diagrams (ASCII art)                           │
+│    ├─ Component interaction flows                                        │
+│    ├─ Thread state diagrams                                              │
+│    ├─ Synchronization flow charts                                        │
+│    └─ Design patterns used                                               │
+│                                                                           │
+│    📍 Best for understanding system structure visually                   │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 5. TECHNICAL_DOCUMENTATION.txt                                           │
+│    ├─ Implementation details                                             │
+│    ├─ Synchronization patterns explained                                 │
+│    ├─ Thread safety guarantees                                           │
+│    ├─ Design decisions and rationale                                     │
+│    ├─ Common pitfalls avoided                                            │
+│    └─ Extensibility options                                              │
+│                                                                           │
+│    📍 Deep dive for understanding the implementation                     │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 6. PROJECT_SUMMARY.md                                                    │
+│    ├─ Complete project deliverables                                      │
+│    ├─ File structure and organization                                    │
+│    ├─ Requirements checklist                                             │
+│    ├─ Code statistics                                                    │
+│    └─ Status and completion confirmation                                 │
+│                                                                           │
+│    📍 Summary for project evaluation and submission                      │
+└──────────────────────────────────────────────────────────────────────────┘
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📁 SOURCE CODE DOCUMENTATION
+
+All Java source files include comprehensive Javadoc comments:
+
+Model Layer:
+  src/model/Car.java          - Car entity with timestamp tracking
+  src/model/CarPark.java      - Bounded buffer with synchronization
+
+Controller Layer:
+  src/controller/CarOwner.java           - Producer thread
+  src/controller/SecurityGuard.java      - Consumer thread
+  src/controller/SimulationManager.java  - Thread orchestration
+
+View Layer:
+  src/ui/DashboardUI.java     - JavaFX user interface
+
+Main:
+  src/Main.java               - Application entry point
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 DOCUMENTATION BY PURPOSE
+
+Want to RUN the application?
+  → GETTING_STARTED.txt
+
+Want to USE the features?
+  → QUICK_START_GUIDE.md
+
+Want to UNDERSTAND the architecture?
+  → ARCHITECTURE_DIAGRAM.txt
+  → README.md
+
+Want to LEARN the implementation?
+  → TECHNICAL_DOCUMENTATION.txt
+  → Source code with Javadoc
+
+Want to EVALUATE the project?
+  → PROJECT_SUMMARY.md
+  → README.md
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 DOCUMENTATION STATISTICS
+
+Total Documentation Files:  7 (including this index)
+Total Documentation Size:   ~60 KB
+Javadoc Comments:          In all source files
+Code Comments:             Throughout implementation
+
+Documentation Coverage:
+  ✓ User guides
+  ✓ Technical details
+  ✓ Architecture diagrams
+  ✓ API documentation (Javadoc)
+  ✓ Setup instructions
+  ✓ Testing scenarios
+  ✓ Troubleshooting
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 QUICK REFERENCE
+
+To run the application:
+  $ ./run.sh
+  OR
+  $ mvn javafx:run
+
+To compile only:
+  $ mvn clean compile
+
+To create JAR:
+  $ mvn package
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 TIPS
+
+• Start with GETTING_STARTED.txt for a quick overview
+• The application is self-documented with tooltips and labels
+• All source code has Javadoc - read inline for implementation details
+• Try the recommended test scenarios in QUICK_START_GUIDE.md
+• Check TECHNICAL_DOCUMENTATION.txt for understanding concurrency
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This project is fully documented and ready for use!
+

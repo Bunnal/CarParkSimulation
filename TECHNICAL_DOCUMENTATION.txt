@@ -1,0 +1,271 @@
+/**
+ * ============================================================================
+ * CAR PARK MANAGEMENT SIMULATION - TECHNICAL DOCUMENTATION
+ * ============================================================================
+ * 
+ * PROJECT OVERVIEW
+ * ----------------
+ * This application is a comprehensive demonstration of the Producer-Consumer
+ * problem, one of the classic synchronization problems in Operating Systems.
+ * 
+ * PROBLEM STATEMENT
+ * -----------------
+ * The Producer-Consumer problem involves:
+ * - Multiple producers generating items (cars)
+ * - Multiple consumers processing items (removing cars)
+ * - A shared bounded buffer (car park with limited capacity)
+ * - Need for synchronization to prevent race conditions
+ * 
+ * SOLUTION APPROACH
+ * -----------------
+ * We use explicit locks (ReentrantLock) with condition variables instead of
+ * synchronized blocks or semaphores for fine-grained control:
+ * 
+ * 1. ReentrantLock: Provides exclusive access to the car park
+ * 2. Condition notFull: Signals producers when space becomes available
+ * 3. Condition notEmpty: Signals consumers when cars become available
+ * 
+ * WHY CONDITION VARIABLES?
+ * ------------------------
+ * Condition variables eliminate busy-waiting by allowing threads to:
+ * - Block (await) when they cannot proceed
+ * - Be awakened (signal) when the condition changes
+ * 
+ * This is more efficient than:
+ * - Busy-waiting: while(!canProceed) { } // Wastes CPU cycles
+ * - Sleep loops: while(!canProceed) { Thread.sleep(100); } // Imprecise timing
+ * 
+ * SYNCHRONIZATION GUARANTEES
+ * ---------------------------
+ * 1. Mutual Exclusion: Only one thread modifies the car park at a time
+ * 2. No Race Conditions: All shared state protected by locks
+ * 3. No Deadlock: Locks acquired and released in consistent order
+ * 4. No Starvation: Fair lock ensures FIFO ordering
+ * 5. Progress: Condition variables prevent threads from spinning
+ * 
+ * THREAD SAFETY PATTERNS
+ * -----------------------
+ * 
+ * Pattern 1: Lock-Protected Critical Section
+ * ```java
+ * lock.lock();
+ * try {
+ *     // Critical section - access shared state
+ * } finally {
+ *     lock.unlock(); // Always release, even on exception
+ * }
+ * ```
+ * 
+ * Pattern 2: Condition Variable Wait Pattern
+ * ```java
+ * lock.lock();
+ * try {
+ *     while (!condition) {
+ *         conditionVar.await(); // Release lock and wait
+ *     }
+ *     // Proceed when condition is true
+ * } finally {
+ *     lock.unlock();
+ * }
+ * ```
+ * 
+ * Pattern 3: Signal After State Change
+ * ```java
+ * lock.lock();
+ * try {
+ *     modifySharedState();
+ *     condition.signal(); // Wake one waiting thread
+ *     // or condition.signalAll(); // Wake all waiting threads
+ * } finally {
+ *     lock.unlock();
+ * }
+ * ```
+ * 
+ * ARCHITECTURE LAYERS
+ * -------------------
+ * 
+ * 1. MODEL LAYER (Business Logic)
+ *    - Car: Immutable entity with thread-safe ID generation
+ *    - CarPark: Thread-safe bounded buffer
+ *    
+ * 2. CONTROLLER LAYER (Concurrency Logic)
+ *    - CarOwner: Producer runnable
+ *    - SecurityGuard: Consumer runnable
+ *    - SimulationManager: Thread lifecycle management
+ *    
+ * 3. VIEW LAYER (UI)
+ *    - DashboardUI: JavaFX interface with AnimationTimer
+ *    - Separate from business logic (Single Responsibility)
+ * 
+ * UI UPDATE STRATEGY
+ * ------------------
+ * Challenge: JavaFX UI must be updated on the JavaFX Application Thread.
+ * Solution: Use AnimationTimer for periodic polling instead of callbacks.
+ * 
+ * Why AnimationTimer?
+ * - Runs on JavaFX Application Thread (safe for UI updates)
+ * - Called ~60 times per second (smooth updates)
+ * - Non-blocking (doesn't interfere with simulation threads)
+ * 
+ * Alternative: Platform.runLater() for event-driven updates
+ * Used when: Immediate response needed to user actions
+ * 
+ * THREAD LIFECYCLE
+ * ----------------
+ * 
+ * 1. Creation:
+ *    - SimulationManager creates CarOwner and SecurityGuard instances
+ *    - Each wrapped in a Thread object
+ * 
+ * 2. Starting:
+ *    - Thread.start() invokes run() method in new thread
+ *    - Thread enters RUNNABLE state
+ * 
+ * 3. Blocking:
+ *    - await() on condition variable → WAITING state
+ *    - Thread releases lock and waits for signal
+ * 
+ * 4. Waking:
+ *    - signal() moves one thread from WAITING to RUNNABLE
+ *    - Thread re-acquires lock and continues
+ * 
+ * 5. Stopping:
+ *    - Set running flag to false
+ *    - Interrupt thread to break out of blocking operations
+ *    - join() waits for thread to terminate
+ * 
+ * GRACEFUL SHUTDOWN
+ * -----------------
+ * Proper cleanup is essential to avoid:
+ * - Resource leaks (threads not terminated)
+ * - Deadlocks (threads waiting forever)
+ * - Corrupted state (threads stopped mid-operation)
+ * 
+ * Our approach:
+ * 1. Signal threads to stop (volatile flag)
+ * 2. Interrupt to wake from blocking
+ * 3. Join with timeout (avoid infinite wait)
+ * 4. Clear collections
+ * 
+ * PERFORMANCE CONSIDERATIONS
+ * --------------------------
+ * 
+ * 1. Lock Contention:
+ *    - More threads = more contention
+ *    - Fair lock ensures no starvation but slightly slower
+ *    - Minimize critical section size
+ * 
+ * 2. Throughput:
+ *    - Limited by slower of production/consumption rate
+ *    - Buffer size affects ability to absorb rate variations
+ *    - Optimal: balanced production and consumption
+ * 
+ * 3. Memory Usage:
+ *    - O(capacity) for buffer
+ *    - Each thread has its own stack (platform-dependent, typically 1MB)
+ *    - Car objects are lightweight
+ * 
+ * TESTING STRATEGIES
+ * ------------------
+ * 
+ * 1. Unit Testing:
+ *    - Test CarPark methods in isolation
+ *    - Verify lock acquisition/release
+ *    - Check statistics calculations
+ * 
+ * 2. Integration Testing:
+ *    - Run multiple producers and consumers
+ *    - Verify no deadlocks or race conditions
+ *    - Check that all cars are accounted for
+ * 
+ * 3. Stress Testing:
+ *    - High thread counts (10+ producers/consumers)
+ *    - Small buffer size (5 slots)
+ *    - Fast rates (100ms)
+ *    - Run for extended periods (minutes/hours)
+ * 
+ * 4. Visual Testing:
+ *    - Watch thread status indicators
+ *    - Verify blocking behavior (orange circles)
+ *    - Check statistics accuracy
+ * 
+ * COMMON PITFALLS AVOIDED
+ * ------------------------
+ * 
+ * ❌ Forgetting to release locks
+ *    ✅ Solution: Always use try-finally
+ * 
+ * ❌ Updating UI from background threads
+ *    ✅ Solution: Platform.runLater() or AnimationTimer
+ * 
+ * ❌ Busy-waiting (while loop without blocking)
+ *    ✅ Solution: Condition.await()
+ * 
+ * ❌ Non-atomic operations on shared state
+ *    ✅ Solution: Protect all access with locks
+ * 
+ * ❌ Ignoring InterruptedException
+ *    ✅ Solution: Check running flag, restore interrupt status
+ * 
+ * ❌ Hard-coding thread counts and rates
+ *    ✅ Solution: Configurable via UI
+ * 
+ * EXTENSIBILITY
+ * -------------
+ * 
+ * This design can be extended with:
+ * 
+ * 1. Multiple Buffer Types:
+ *    - Implement different synchronization primitives
+ *    - Compare performance (Semaphores vs. Monitors vs. Locks)
+ * 
+ * 2. Priority Systems:
+ *    - VIP cars get processed first
+ *    - PriorityQueue instead of LinkedList
+ * 
+ * 3. Advanced Statistics:
+ *    - Histogram of wait times
+ *    - Per-thread performance metrics
+ *    - Utilization graphs over time
+ * 
+ * 4. Network Simulation:
+ *    - Distributed producers and consumers
+ *    - Remote car park access
+ * 
+ * 5. Persistence:
+ *    - Log all events to database
+ *    - Replay simulation from logs
+ * 
+ * EDUCATIONAL VALUE
+ * -----------------
+ * 
+ * This project teaches:
+ * ✓ Concurrent programming fundamentals
+ * ✓ Synchronization primitives (locks, conditions)
+ * ✓ Thread safety and race condition prevention
+ * ✓ Separation of concerns (MVC architecture)
+ * ✓ Real-time system visualization
+ * ✓ Clean code practices and documentation
+ * 
+ * KEY TAKEAWAYS
+ * -------------
+ * 
+ * 1. Shared state must be protected
+ * 2. Condition variables eliminate busy-waiting
+ * 3. Try-finally ensures lock release
+ * 4. Graceful shutdown requires careful coordination
+ * 5. UI updates must be on correct thread
+ * 6. Good architecture makes concurrent code manageable
+ * 
+ * REFERENCES
+ * ----------
+ * 
+ * - Operating System Concepts (Silberschatz, Galvin, Gagne)
+ * - Java Concurrency in Practice (Brian Goetz)
+ * - JavaFX 21 Documentation (Oracle)
+ * - ReentrantLock JavaDoc (java.util.concurrent.locks)
+ * 
+ * ============================================================================
+ * END OF TECHNICAL DOCUMENTATION
+ * ============================================================================
+ */

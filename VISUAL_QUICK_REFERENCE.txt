@@ -1,0 +1,164 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║              VISUAL FEATURES QUICK REFERENCE CARD                        ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 🎨 COLOR LEGEND                                                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│ PARKING SLOTS:                                                           │
+│   ⬜ White  = Empty slot (available)                                    │
+│   🟥 Red    = Occupied slot (car parked)                                │
+│                                                                          │
+│ TRAFFIC LIGHTS:                                                          │
+│   🟢 Green  = Operation allowed                                         │
+│   🔴 Red    = Operation blocked (wait)                                  │
+│                                                                          │
+│ CAR COLORS:                                                              │
+│   🔵 Blue   = Car entering (producer operation)                         │
+│   🟠 Orange = Car exiting (consumer operation)                          │
+│                                                                          │
+│ THREAD STATUS:                                                           │
+│   🟢 Green  = Thread active (working)                                   │
+│   🟠 Orange = Thread blocked (waiting)                                  │
+│   🔴 Red    = Thread stopped                                            │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 🚦 TRAFFIC LIGHT MEANINGS                                                │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│ ENTRY LIGHT (Left Side):                                                │
+│   🟢 GREEN  = "Come in! Space available"                                │
+│              Producers can add cars                                      │
+│              Parking lot NOT full                                        │
+│                                                                          │
+│   🔴 RED    = "Sorry, we're full!"                                      │
+│              Producers must WAIT                                         │
+│              All slots occupied                                          │
+│              Producer threads turn ORANGE                                │
+│                                                                          │
+│ EXIT LIGHT (Right Side):                                                │
+│   🟢 GREEN  = "Cars available to leave"                                 │
+│              Consumers can remove cars                                   │
+│              Parking lot NOT empty                                       │
+│                                                                          │
+│   🔴 RED    = "No cars here!"                                           │
+│              Consumers must WAIT                                         │
+│              All slots empty                                             │
+│              Consumer threads turn ORANGE                                │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 🚗 ANIMATION GUIDE                                                       │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│ WHEN YOU SEE A BLUE CAR:                                                │
+│   1. Car appears from LEFT side                                          │
+│   2. Travels across ENTRY pathway → → →                                 │
+│   3. Fades into parking area (1.5 seconds)                              │
+│   4. A parking slot turns RED                                            │
+│   5. Car icon appears in that slot                                       │
+│   = A PRODUCER just added a car!                                         │
+│                                                                          │
+│ WHEN YOU SEE AN ORANGE CAR:                                             │
+│   1. Car appears from PARKING area                                       │
+│   2. Travels across EXIT pathway → → →                                  │
+│   3. Fades out to RIGHT side (1.5 seconds)                              │
+│   4. A parking slot turns WHITE                                          │
+│   5. Car icon disappears from slot                                       │
+│   = A CONSUMER just removed a car!                                       │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 📊 UNDERSTANDING SYSTEM STATES                                           │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│ STATE 1: EMPTY PARKING LOT                                              │
+│   Slots: All WHITE                                                       │
+│   Entry Light: 🟢 GREEN (come in!)                                      │
+│   Exit Light: 🔴 RED (no cars to leave)                                 │
+│   Animations: Only BLUE cars entering                                    │
+│   Threads: Consumers ORANGE (waiting)                                    │
+│                                                                          │
+│ STATE 2: FULL PARKING LOT                                               │
+│   Slots: All RED                                                         │
+│   Entry Light: 🔴 RED (no space!)                                       │
+│   Exit Light: 🟢 GREEN (cars can leave)                                 │
+│   Animations: Only ORANGE cars exiting                                   │
+│   Threads: Producers ORANGE (waiting)                                    │
+│                                                                          │
+│ STATE 3: BALANCED SYSTEM                                                │
+│   Slots: Mix of WHITE and RED                                            │
+│   Entry Light: 🟢 GREEN                                                 │
+│   Exit Light: 🟢 GREEN                                                  │
+│   Animations: BOTH blue and orange cars                                  │
+│   Threads: All GREEN (working smoothly)                                  │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 🔍 TROUBLESHOOTING WITH VISUALS                                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│ PROBLEM: Producers always ORANGE                                        │
+│   VISUAL: Entry light always RED, all slots RED                          │
+│   CAUSE: Parking lot full                                                │
+│   FIX: Increase consumers or consumption rate                            │
+│                                                                          │
+│ PROBLEM: Consumers always ORANGE                                        │
+│   VISUAL: Exit light always RED, all slots WHITE                         │
+│   CAUSE: Parking lot empty                                               │
+│   FIX: Increase producers or production rate                             │
+│                                                                          │
+│ PROBLEM: No animations                                                  │
+│   VISUAL: Slots don't change, lights don't flip                          │
+│   CAUSE: Simulation not running                                          │
+│   FIX: Click "Start Simulation" button                                   │
+│                                                                          │
+│ PROBLEM: Too fast to see                                                │
+│   VISUAL: Rapid slot changes, constant animations                        │
+│   CAUSE: Rates too low (fast production/consumption)                     │
+│   FIX: Increase rate values (slower = higher ms)                         │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 💡 VISUAL LEARNING TIPS                                                  │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│ 1. WATCH THE SLOTS                                                      │
+│    → See individual slots change WHITE → RED → WHITE                    │
+│    → Understand the bounded buffer filling and emptying                  │
+│                                                                          │
+│ 2. FOLLOW THE TRAFFIC LIGHTS                                            │
+│    → When entry turns RED, watch producers turn ORANGE                   │
+│    → Perfect visual of thread blocking!                                  │
+│                                                                          │
+│ 3. COUNT THE ANIMATIONS                                                 │
+│    → More blue cars = high production rate                               │
+│    → More orange cars = high consumption rate                            │
+│    → Balanced = both visible                                             │
+│                                                                          │
+│ 4. CORRELATE THREADS AND LIGHTS                                         │
+│    → Red light ⟺ Orange threads (synchronization!)                     │
+│    → Green light ⟺ Green threads (active work)                         │
+│                                                                          │
+│ 5. EXPERIMENT WITH EXTREMES                                             │
+│    → 1 producer, 10 consumers (exit light often red)                     │
+│    → 10 producers, 1 consumer (entry light often red)                    │
+│    → See the visual patterns!                                            │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════════════════
+
+               🎓 USE THIS CARD AS A QUICK REFERENCE 🎓
+               
+Keep it handy while running the simulation to understand what
+you're seeing and how it relates to the Producer-Consumer problem!
+
+══════════════════════════════════════════════════════════════════════════

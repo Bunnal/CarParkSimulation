@@ -1,0 +1,271 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   CAR PARK MANAGEMENT SIMULATION                              ║
+║                      ARCHITECTURE DIAGRAM                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           APPLICATION LAYERS                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    ┌─────────────────────────────────────────────────────────────┐
+    │                        Main.java                            │
+    │                   (JavaFX Application)                      │
+    └──────────────────────┬──────────────────────────────────────┘
+                           │ launches
+                           ▼
+    ┌─────────────────────────────────────────────────────────────┐
+    │                     VIEW LAYER                              │
+    │  ┌───────────────────────────────────────────────────────┐  │
+    │  │              DashboardUI.java                         │  │
+    │  │  • Real-time Statistics Display                       │  │
+    │  │  • Thread Status Visualization                        │  │
+    │  │  • Configuration Controls                             │  │
+    │  │  • AnimationTimer (non-blocking updates)              │  │
+    │  └────────────────┬──────────────────────────────────────┘  │
+    └───────────────────┼─────────────────────────────────────────┘
+                        │ controls
+                        ▼
+    ┌─────────────────────────────────────────────────────────────┐
+    │                   CONTROLLER LAYER                          │
+    │  ┌───────────────────────────────────────────────────────┐  │
+    │  │         SimulationManager.java                        │  │
+    │  │  • Creates and manages threads                        │  │
+    │  │  • Start/Stop simulation                              │  │
+    │  │  • Dynamic rate adjustment                            │  │
+    │  │  • Statistics aggregation                             │  │
+    │  └────────────────┬──────────────────┬───────────────────┘  │
+    │                   │                  │                       │
+    │         creates   │                  │ creates               │
+    │                   ▼                  ▼                       │
+    │  ┌─────────────────────┐   ┌─────────────────────┐          │
+    │  │   CarOwner.java     │   │ SecurityGuard.java  │          │
+    │  │   (Producer)        │   │   (Consumer)        │          │
+    │  │  • Implements       │   │  • Implements       │          │
+    │  │    Runnable         │   │    Runnable         │          │
+    │  │  • Generates Cars   │   │  • Removes Cars     │          │
+    │  │  • Blocks when full │   │  • Blocks when empty│          │
+    │  └──────────┬──────────┘   └──────────┬──────────┘          │
+    └─────────────┼───────────────────────────┼─────────────────────┘
+                  │                           │
+                  │ park()                    │ remove()
+                  └───────────┬───────────────┘
+                              ▼
+    ┌─────────────────────────────────────────────────────────────┐
+    │                      MODEL LAYER                            │
+    │  ┌───────────────────────────────────────────────────────┐  │
+    │  │              CarPark.java                             │  │
+    │  │           (Shared Bounded Buffer)                     │  │
+    │  │  ┌─────────────────────────────────────────────────┐  │  │
+    │  │  │ • ReentrantLock (fair)                          │  │  │
+    │  │  │ • Condition notFull (for producers)             │  │  │
+    │  │  │ • Condition notEmpty (for consumers)            │  │  │
+    │  │  │ • Queue<Car> parkedCars                         │  │  │
+    │  │  │ • Statistics tracking                           │  │  │
+    │  │  └─────────────────────────────────────────────────┘  │  │
+    │  └───────────────────────┬───────────────────────────────┘  │
+    │                          │ stores                            │
+    │                          ▼                                   │
+    │  ┌───────────────────────────────────────────────────────┐  │
+    │  │                  Car.java                             │  │
+    │  │  • Unique ID (AtomicInteger)                          │  │
+    │  │  • License Plate                                      │  │
+    │  │  • Arrival/Departure Times                            │  │
+    │  └───────────────────────────────────────────────────────┘  │
+    └─────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      THREAD INTERACTION DIAGRAM                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Producer Thread 1          Producer Thread N          Consumer Thread 1
+        │                          │                           │
+        ├─ Generate Car            ├─ Generate Car            │
+        │                          │                           │
+        ├─ Try parkCar()           ├─ Try parkCar()           ├─ Try removeCar()
+        │                          │                           │
+        ▼                          ▼                           ▼
+    ┌─────────────────────────────────────────────────────────────┐
+    │                    CarPark (Shared Buffer)                  │
+    │                                                             │
+    │  lock.lock()                                                │
+    │  ├─ Is Full? ──YES──▶ notFull.await() ──┐                  │
+    │  │            └─NO                       │ [BLOCKED]        │
+    │  ├─ Add Car                              │                  │
+    │  ├─ notEmpty.signal() ◀──────────────────┘ [SIGNALED]      │
+    │  └─ lock.unlock()                                           │
+    │                                                             │
+    │  lock.lock()                                                │
+    │  ├─ Is Empty? ──YES──▶ notEmpty.await() ─┐                 │
+    │  │             └─NO                       │ [BLOCKED]       │
+    │  ├─ Remove Car                            │                 │
+    │  ├─ notFull.signal() ◀────────────────────┘ [SIGNALED]     │
+    │  └─ lock.unlock()                                           │
+    └─────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        SYNCHRONIZATION FLOW                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  PRODUCER FLOW:                          CONSUMER FLOW:
+  
+  1. Generate Car                         1. Request Car
+     │                                       │
+  2. Acquire Lock                         2. Acquire Lock
+     │                                       │
+  3. Check: Is Full?                      3. Check: Is Empty?
+     │                                       │
+     ├─YES─▶ notFull.await()                ├─YES─▶ notEmpty.await()
+     │       (Release lock & wait)          │       (Release lock & wait)
+     │       │                               │       │
+     │       Wait for signal...              │       Wait for signal...
+     │       │                               │       │
+     │       Re-acquire lock                 │       Re-acquire lock
+     │       │                               │       │
+     │       Back to step 3                  │       Back to step 3
+     │                                       │
+     └─NO─▶ Add Car to buffer               └─NO─▶ Remove Car from buffer
+            │                                       │
+            notEmpty.signal()                      notFull.signal()
+            (Wake 1 consumer)                      (Wake 1 producer)
+            │                                       │
+            Release Lock                           Release Lock
+            │                                       │
+            Sleep (production rate)                Sleep (consumption rate)
+            │                                       │
+            Back to step 1                         Back to step 1
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         DATA FLOW DIAGRAM                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+   User Input                Statistics Output
+      │                            ▲
+      │ (Start/Stop/Config)        │ (Occupancy, Throughput, etc.)
+      │                            │
+      ▼                            │
+  ┌─────────────────────────────────────┐
+  │       SimulationManager             │
+  │  ┌──────────────────────────────┐   │
+  │  │ Create N Producer Threads    │   │
+  │  │ Create M Consumer Threads    │   │
+  │  │ Monitor Thread States        │   │
+  │  └──────────────────────────────┘   │
+  └──┬──────────────────────────────┬───┘
+     │                              │
+     │ Thread[]                     │ Thread[]
+     │                              │
+     ▼                              ▼
+  ┌──────────────┐           ┌──────────────┐
+  │ CarOwner 1   │           │SecurityGuard1│
+  ├──────────────┤           ├──────────────┤
+  │ CarOwner 2   │           │SecurityGuard2│
+  ├──────────────┤           ├──────────────┤
+  │    ...       │           │    ...       │
+  ├──────────────┤           ├──────────────┤
+  │ CarOwner N   │           │SecurityGuardM│
+  └──────┬───────┘           └──────┬───────┘
+         │                          │
+         │ parkCar(car)             │ removeCar()
+         │                          │
+         └───────────┬──────────────┘
+                     ▼
+          ┌──────────────────────┐
+          │      CarPark         │
+          │  ┌────────────────┐  │
+          │  │ Queue<Car>     │  │
+          │  │ [🚗][🚗][🚗]  │  │
+          │  │  Capacity: 10  │  │
+          │  └────────────────┘  │
+          │  ┌────────────────┐  │
+          │  │   Statistics   │  │
+          │  │ • Total: 123   │  │
+          │  │ • Throughput   │  │
+          │  │ • Wait Time    │  │
+          │  └────────────────┘  │
+          └──────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      THREAD STATE DIAGRAM                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+        NEW
+         │
+         │ start()
+         ▼
+      RUNNABLE ◀──────────────────────┐
+         │                            │
+         │ await()              signal()
+         ▼                            │
+      WAITING ──────────────────────┘
+         │
+         │ stopProducing() / stopConsuming()
+         ▼
+    TERMINATED
+
+
+    VISUAL INDICATORS:
+    ═══════════════════
+    🟢 Green   = RUNNABLE (actively working)
+    🟠 Orange  = WAITING (blocked on condition)
+    🔴 Red     = TERMINATED (stopped)
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    KEY DESIGN PATTERNS USED                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+1. PRODUCER-CONSUMER PATTERN
+   └─ Multiple threads sharing bounded buffer
+   
+2. MONITOR PATTERN (via ReentrantLock + Conditions)
+   └─ Encapsulate synchronization within CarPark
+   
+3. MODEL-VIEW-CONTROLLER (MVC)
+   └─ Model: Car, CarPark
+   └─ View: DashboardUI
+   └─ Controller: CarOwner, SecurityGuard, SimulationManager
+   
+4. OBSERVABLE PATTERN (implicit)
+   └─ AnimationTimer polls for updates
+   
+5. FACTORY PATTERN (implicit)
+   └─ SimulationManager creates thread instances
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      CONCURRENCY GUARANTEES                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+✓ MUTUAL EXCLUSION
+  └─ ReentrantLock ensures only one thread modifies buffer at a time
+
+✓ NO RACE CONDITIONS
+  └─ All shared state protected by locks
+
+✓ NO DEADLOCK
+  └─ Single lock, consistent acquire/release order
+
+✓ NO STARVATION
+  └─ Fair lock provides FIFO ordering
+
+✓ NO BUSY-WAITING
+  └─ Condition variables block threads efficiently
+
+✓ MEMORY CONSISTENCY
+  └─ Lock provides happens-before relationship
+
+✓ GRACEFUL SHUTDOWN
+  └─ Interrupt handling + volatile flags
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+           For detailed implementation, see source code with Javadoc
+           For usage instructions, see QUICK_START_GUIDE.md
+           For technical details, see TECHNICAL_DOCUMENTATION.txt
+
+═══════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,154 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║        GETTING STARTED - Car Park Management Simulation                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+👋 Welcome to the Car Park Management Simulation!
+
+This application demonstrates the Producer-Consumer problem using
+multi-threading and synchronization with a real-time JavaFX interface.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 PREREQUISITES
+
+Before you start, make sure you have:
+  • Java 17 or higher installed
+  • Maven 3.6 or higher installed
+
+Check your versions:
+  $ java -version    # Should show Java 17+
+  $ mvn -version     # Should show Maven 3.6+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 QUICK START (3 STEPS)
+
+Step 1: Navigate to the project directory
+  $ cd CarParkSimulation
+
+Step 2: Compile the project
+  $ mvn clean compile
+
+Step 3: Run the application
+  $ mvn javafx:run
+
+That's it! The application window should open.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎮 USING THE APPLICATION
+
+1. Configure Parameters
+   - Set buffer capacity (5-50 slots)
+   - Choose number of producers (1-10)
+   - Choose number of consumers (1-10)
+   - Adjust production rate (100-2000ms)
+   - Adjust consumption rate (100-2000ms)
+
+2. Click "▶ Start Simulation"
+   - Watch the statistics update in real-time
+   - Observe thread status indicators change colors
+
+3. Experiment!
+   - Move the rate sliders while running
+   - Try different configurations
+   - Watch for blocking patterns (orange circles)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎨 THREAD STATUS COLORS
+
+  🟢 GREEN   = Thread is actively working (producing/consuming)
+  🟠 ORANGE  = Thread is blocked/waiting (buffer full/empty)
+  🔴 RED     = Thread has stopped
+
+When you see orange circles:
+  • Producers orange → Car park is full
+  • Consumers orange → Car park is empty
+
+This is the synchronization in action!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 STATISTICS EXPLAINED
+
+Occupancy %:     How full the car park is (0-100%)
+Available Slots: Number of free spaces (current/total)
+Throughput:      Cars exiting per second
+Avg Wait Time:   Average parking duration in seconds
+Total Processed: Total cars that have exited
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🧪 RECOMMENDED TEST SCENARIOS
+
+TRY THIS FIRST (Balanced):
+  Capacity: 15 | Producers: 3 | Consumers: 3
+  Production Rate: 500ms | Consumption Rate: 500ms
+  → Expect: Smooth operation, ~50% occupancy
+
+PRODUCER OVERLOAD:
+  Capacity: 10 | Producers: 5 | Consumers: 2
+  Production Rate: 200ms | Consumption Rate: 1000ms
+  → Expect: High occupancy, many orange producers
+
+CONSUMER OVERLOAD:
+  Capacity: 10 | Producers: 2 | Consumers: 5
+  Production Rate: 1000ms | Consumption Rate: 200ms
+  → Expect: Low occupancy, many orange consumers
+
+STRESS TEST:
+  Capacity: 5 | Producers: 8 | Consumers: 8
+  Production Rate: 100ms | Consumption Rate: 100ms
+  → Expect: Frequent blocking, high contention
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 MORE INFORMATION
+
+For detailed documentation, see:
+
+  • QUICK_START_GUIDE.md        - Complete step-by-step guide
+  • README.md                    - Full feature documentation
+  • TECHNICAL_DOCUMENTATION.txt  - Implementation details
+  • ARCHITECTURE_DIAGRAM.txt     - Visual architecture
+  • PROJECT_SUMMARY.md           - Project overview
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎓 WHAT YOU'RE LEARNING
+
+This application demonstrates:
+  ✓ Producer-Consumer problem (classic OS concept)
+  ✓ Thread synchronization with locks and conditions
+  ✓ Bounded buffer implementation
+  ✓ Real-time system visualization
+  ✓ Condition variables (NO busy-waiting!)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❓ TROUBLESHOOTING
+
+Problem: "mvn: command not found"
+  → Install Maven from https://maven.apache.org/
+
+Problem: JavaFX modules not found
+  → Make sure Java 17+ is installed
+
+Problem: Application won't start
+  → Run: mvn clean compile
+  → Then: mvn javafx:run
+
+Problem: UI not updating
+  → This shouldn't happen - AnimationTimer handles updates
+  → Check console for errors
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 ENJOY THE SIMULATION!
+
+Watch the Producer-Consumer problem come to life!
+
+For questions or issues, check the documentation files.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
