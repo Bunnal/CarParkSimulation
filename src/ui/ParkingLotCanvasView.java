@@ -56,7 +56,6 @@ public class ParkingLotCanvasView extends StackPane {
         drawRoad(gc);
         drawParkingLot(gc);
         drawDriveway(gc);
-        drawBooth(gc);
         drawSlots(gc);
         drawParkedCars(gc);
         drawOverlayText(gc);
@@ -168,26 +167,6 @@ public class ParkingLotCanvasView extends StackPane {
             gc.fillPolygon(new double[]{x, x + 10, x + 18, x + 8},
                 new double[]{drivewayY + 66, drivewayY + 66, drivewayY + 76, drivewayY + 76}, 4);
         }
-    }
-
-    private void drawBooth(GraphicsContext gc) {
-        gc.setFill(Color.web("#d9dde1"));
-        gc.fillRoundRect(542, 446, 104, 66, 12, 12);
-
-        gc.setFill(Color.web("#bcc1c8"));
-        gc.fillRoundRect(554, 454, 82, 20, 8, 8);
-
-        gc.setFill(Color.web("#f7f7f8"));
-        gc.fillRoundRect(556, 480, 80, 24, 8, 8);
-
-        gc.setFill(Color.web("#df6454"));
-        gc.fillRect(566, 486, 18, 14);
-
-        gc.setStroke(Color.web("#49566a"));
-        gc.setLineWidth(2);
-        gc.strokeRoundRect(598, 484, 24, 24, 4, 4);
-        gc.strokeLine(610, 496, 628, 496);
-        gc.strokeLine(628, 496, 628, 506);
     }
 
     private void drawSlots(GraphicsContext gc) {

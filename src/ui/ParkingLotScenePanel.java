@@ -42,8 +42,6 @@ public class ParkingLotScenePanel extends JPanel {
     private static final Color ROAD_EDGE = new Color(53, 61, 75);
     private static final Color LANE_MARK = new Color(246, 199, 59);
     private static final Color WHITE_MARK = new Color(245, 245, 240);
-    private static final Color BOOTH = new Color(229, 230, 234);
-    private static final Color BOOTH_DARK = new Color(188, 191, 198);
     private static final Color WINDOW = new Color(93, 210, 234);
     private static final Color SHADOW = new Color(27, 35, 48, 55);
     private static final Color NOTE = new Color(96, 112, 99);
@@ -292,7 +290,6 @@ public class ParkingLotScenePanel extends JPanel {
 
         drawParkingDividers(g2);
         drawDriveway(g2);
-        drawBooth(g2);
         drawParkedCars(g2);
     }
 
@@ -384,34 +381,6 @@ public class ParkingLotScenePanel extends JPanel {
             stripe.closePath();
             g2.fill(stripe);
         }
-    }
-
-    private void drawBooth(Graphics2D g2) {
-        g2.setColor(new Color(214, 216, 220));
-        g2.fillRoundRect(515, 470, 132, 118, 12, 12);
-        g2.setColor(BOOTH_DARK);
-        g2.fillRoundRect(530, 484, 102, 34, 8, 8);
-        g2.setColor(BOOTH);
-        g2.fillRoundRect(527, 520, 106, 54, 8, 8);
-
-        g2.setColor(new Color(245, 246, 248));
-        g2.fillRoundRect(540, 532, 38, 26, 4, 4);
-        g2.setColor(new Color(204, 67, 54));
-        g2.fillRect(550, 536, 20, 18);
-        g2.setColor(LOT_OUTLINE);
-        g2.setStroke(new BasicStroke(2f));
-        g2.drawRoundRect(587, 535, 28, 28, 3, 3);
-        g2.drawLine(601, 549, 622, 549);
-        g2.drawLine(622, 549, 622, 565);
-
-        g2.setColor(WHITE_MARK);
-        for (int x = 536; x <= 614; x += 26) {
-            g2.fillRoundRect(x, 476, 8, 18, 4, 4);
-        }
-
-        g2.setColor(LOT_OUTLINE);
-        g2.setStroke(new BasicStroke(3f));
-        g2.drawRoundRect(515, 470, 132, 118, 12, 12);
     }
 
     private void drawRoad(Graphics2D g2) {
