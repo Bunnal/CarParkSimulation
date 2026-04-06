@@ -28,6 +28,7 @@ ui/ParkingLotScenePanel.class
 ui/ParkingLotCanvasView.class
 controller/SimulationController.class
 model/Car$VehicleType.class
+ui/ParkingLotScenePanel$GateVisualState.class
 ui/RoundedPanel.class
 ui/CarIcon.class
 ui/ParkingLotScenePanel$MovingPlacement.class

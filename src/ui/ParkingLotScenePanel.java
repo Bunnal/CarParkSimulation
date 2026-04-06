@@ -1,6 +1,8 @@
 package ui;
 
 import controller.SimStats;
+import controller.WorkerSnapshot;
+import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -21,9 +23,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.DoubleFunction;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 import model.Car;
+import model.WorkerState;
 
 /**
  * Scalable Swing panel that renders the parking lot and animated road traffic.
@@ -45,6 +49,10 @@ public class ParkingLotScenePanel extends JPanel {
     private static final Color WINDOW = new Color(93, 210, 234);
     private static final Color SHADOW = new Color(27, 35, 48, 55);
     private static final Color NOTE = new Color(96, 112, 99);
+    private static final Color STATE_OPEN = new Color(54, 163, 93);
+    private static final Color STATE_WAITING = new Color(219, 171, 66);
+    private static final Color STATE_BLOCKED = new Color(210, 84, 74);
+    private static final Color STATE_STOPPED = new Color(134, 144, 158);
 
     private static final int LOT_X = 98;
     private static final int LOT_Y = 100;
@@ -58,6 +66,21 @@ public class ParkingLotScenePanel extends JPanel {
     private static final int RIGHT_SLOT_CENTER_X = 604;
     private static final int SLOT_TOP = 108;
     private static final int SLOT_BOTTOM = 624;
+    private static final int DRIVEWAY_CENTER_X = 400;
+    private static final int DRIVEWAY_JOIN_Y = 694;
+    private static final int ENTRY_ROAD_Y = 720;
+    private static final int EXIT_ROAD_Y = 720;
+    private static final int ENTRY_ROAD_START_X = -120;
+    private static final int ENTRY_TURN_START_X = 332;
+    private static final int EXIT_TURN_END_X = 468;
+    private static final int EXIT_ROAD_END_X = DESIGN_WIDTH + 130;
+    private static final double INCOMING_PROGRESS_STEP = 0.018;
+    private static final double OUTGOING_PROGRESS_STEP = 0.02;
+    private static final double FOLLOWING_DISTANCE = 150.0;
+    private static final double INCOMING_SHARED_START = 0.24;
+    private static final double INCOMING_SHARED_END = 0.72;
+    private static final double OUTGOING_SHARED_START = 0.28;
+    private static final double OUTGOING_SHARED_END = 0.78;
 
     private final List<RoadCar> animatedCars;
     private final List<IncomingCarAnimation> incomingCars;
@@ -133,6 +156,7 @@ public class ParkingLotScenePanel extends JPanel {
         drawBackground(g2);
         drawParkingLot(g2);
         drawRoad(g2);
+        drawRoadStateIndicators(g2);
         drawAnimatedCars(g2);
         drawIncomingCars(g2);
         drawOutgoingCars(g2);
@@ -142,9 +166,9 @@ public class ParkingLotScenePanel extends JPanel {
     }
 
     private void createAnimatedCars() {
-        animatedCars.add(new RoadCar(-90, 720, 84, 30, 1.8, VehicleKind.BLUE_COMPACT));
         animatedCars.add(new RoadCar(860, 770, 94, 34, -2.0, VehicleKind.ORANGE_SEDAN));
-        animatedCars.add(new RoadCar(280, 720, 76, 28, 1.2, VehicleKind.YELLOW_TAXI));
+        animatedCars.add(new RoadCar(540, 770, 84, 30, -1.6, VehicleKind.BLUE_COMPACT));
+        animatedCars.add(new RoadCar(220, 770, 76, 28, -1.3, VehicleKind.YELLOW_TAXI));
     }
 
     private void updateAnimatedCars() {
@@ -212,10 +236,27 @@ public class ParkingLotScenePanel extends JPanel {
     }
 
     private void updateIncomingCars() {
+        int displaySlots = calculateDisplaySlots();
+        boolean outgoingUsingSharedLane = hasOutgoingInSharedLane();
+        MovingPlacement leaderPlacement = null;
         Iterator<IncomingCarAnimation> iterator = incomingCars.iterator();
         while (iterator.hasNext()) {
             IncomingCarAnimation animation = iterator.next();
-            animation.progress = Math.min(1.0, animation.progress + 0.018);
+            SlotPlacement slot = slotPlacementFor(animation.slotIndex, displaySlots);
+            double targetProgress = Math.min(1.0, animation.progress + INCOMING_PROGRESS_STEP);
+            if (outgoingUsingSharedLane && animation.progress < INCOMING_SHARED_START
+                && targetProgress > INCOMING_SHARED_START) {
+                targetProgress = INCOMING_SHARED_START;
+            }
+
+            animation.progress = resolveProgress(
+                animation.progress,
+                targetProgress,
+                progress -> incomingPlacementFor(slot, progress),
+                leaderPlacement,
+                FOLLOWING_DISTANCE
+            );
+            leaderPlacement = incomingPlacementFor(slot, animation.progress);
 
             if (animation.progress >= 1.0) {
                 iterator.remove();
@@ -224,10 +265,27 @@ public class ParkingLotScenePanel extends JPanel {
     }
 
     private void updateOutgoingCars() {
+        int displaySlots = calculateDisplaySlots();
+        boolean incomingUsingSharedLane = hasIncomingInSharedLane();
+        MovingPlacement leaderPlacement = null;
         Iterator<OutgoingCarAnimation> iterator = outgoingCars.iterator();
         while (iterator.hasNext()) {
             OutgoingCarAnimation animation = iterator.next();
-            animation.progress = Math.min(1.0, animation.progress + 0.02);
+            SlotPlacement slot = slotPlacementFor(animation.slotIndex, displaySlots);
+            double targetProgress = Math.min(1.0, animation.progress + OUTGOING_PROGRESS_STEP);
+            if (incomingUsingSharedLane && animation.progress < OUTGOING_SHARED_START
+                && targetProgress > OUTGOING_SHARED_START) {
+                targetProgress = OUTGOING_SHARED_START;
+            }
+
+            animation.progress = resolveProgress(
+                animation.progress,
+                targetProgress,
+                progress -> outgoingPlacementFor(slot, progress),
+                leaderPlacement,
+                FOLLOWING_DISTANCE
+            );
+            leaderPlacement = outgoingPlacementFor(slot, animation.progress);
 
             if (animation.progress >= 1.0) {
                 slotAssignments.remove(animation.car.getId());
@@ -259,6 +317,57 @@ public class ParkingLotScenePanel extends JPanel {
         incomingCars.removeIf(animation -> animation.car.getId() == carId);
     }
 
+    private boolean hasIncomingInSharedLane() {
+        for (IncomingCarAnimation animation : incomingCars) {
+            if (animation.progress > INCOMING_SHARED_START && animation.progress < INCOMING_SHARED_END) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasOutgoingInSharedLane() {
+        for (OutgoingCarAnimation animation : outgoingCars) {
+            if (animation.progress > OUTGOING_SHARED_START && animation.progress < OUTGOING_SHARED_END) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private double resolveProgress(double currentProgress, double targetProgress,
+                                   DoubleFunction<MovingPlacement> placementResolver,
+                                   MovingPlacement leaderPlacement, double minDistance) {
+        if (leaderPlacement == null || targetProgress <= currentProgress) {
+            return targetProgress;
+        }
+
+        MovingPlacement targetPlacement = placementResolver.apply(targetProgress);
+        if (distanceBetween(targetPlacement, leaderPlacement) >= minDistance) {
+            return targetProgress;
+        }
+
+        double low = currentProgress;
+        double high = targetProgress;
+        for (int iteration = 0; iteration < 10; iteration++) {
+            double mid = (low + high) * 0.5;
+            MovingPlacement midPlacement = placementResolver.apply(mid);
+            if (distanceBetween(midPlacement, leaderPlacement) >= minDistance) {
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+
+        return low;
+    }
+
+    private double distanceBetween(MovingPlacement first, MovingPlacement second) {
+        double deltaX = first.centerX - second.centerX;
+        double deltaY = first.centerY - second.centerY;
+        return Math.hypot(deltaX, deltaY);
+    }
+
     private void drawBackground(Graphics2D g2) {
         g2.setColor(GRASS);
         g2.fillRoundRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT, 28, 28);
@@ -288,6 +397,7 @@ public class ParkingLotScenePanel extends JPanel {
         g2.setStroke(new BasicStroke(3f));
         g2.drawRect(LOT_X, LOT_Y, LOT_WIDTH, LOT_HEIGHT);
 
+        drawLotStateBanner(g2);
         drawParkingDividers(g2);
         drawDriveway(g2);
         drawParkedCars(g2);
@@ -335,6 +445,11 @@ public class ParkingLotScenePanel extends JPanel {
     }
 
     private void drawDriveway(Graphics2D g2) {
+        GateVisualState entryState = entryGateState();
+        GateVisualState exitState = exitGateState();
+        int waitingOwners = waitingProducerCount();
+        int waitingGuards = waitingConsumerCount();
+
         g2.setColor(ASPHALT);
         g2.fillRect(300, 625, 200, 75);
 
@@ -364,23 +479,10 @@ public class ParkingLotScenePanel extends JPanel {
         g2.setFont(new Font("SansSerif", Font.BOLD, 30));
         g2.drawString("P", 365, 676);
 
-        g2.setColor(new Color(243, 208, 74));
-        g2.fillRoundRect(270, 665, 16, 36, 6, 6);
-        g2.setColor(LOT_OUTLINE);
-        g2.fillRoundRect(276, 673, 8, 28, 4, 4);
-
-        g2.setColor(new Color(251, 216, 81));
-        g2.fillRoundRect(285, 678, 190, 10, 10, 10);
-        g2.setColor(new Color(221, 86, 61));
-        for (int x = 292; x < 462; x += 28) {
-            Path2D stripe = new Path2D.Double();
-            stripe.moveTo(x, 678);
-            stripe.lineTo(x + 10, 678);
-            stripe.lineTo(x + 18, 688);
-            stripe.lineTo(x + 8, 688);
-            stripe.closePath();
-            g2.fill(stripe);
-        }
+        drawGateBadge(g2, 194, 590, "ENTRY " + gateHeadline(entryState), entryGateDetail(waitingOwners), entryState);
+        drawGateBadge(g2, 470, 590, "EXIT " + gateHeadline(exitState), exitGateDetail(waitingGuards), exitState);
+        drawGateControl(g2, 282, 646, true, entryState);
+        drawGateControl(g2, 506, 646, false, exitState);
     }
 
     private void drawRoad(Graphics2D g2) {
@@ -410,7 +512,6 @@ public class ParkingLotScenePanel extends JPanel {
 
             drawVehicle(g2, movingPlacement.centerX, movingPlacement.centerY, slot.width, slot.height,
                 movingPlacement.angleDegrees, vehicleKindForCar(animation.car), animation.car);
-            drawCarNameTag(g2, animation.car, movingPlacement.centerX, movingPlacement.centerY - 32);
         }
     }
 
@@ -422,7 +523,6 @@ public class ParkingLotScenePanel extends JPanel {
 
             drawVehicle(g2, movingPlacement.centerX, movingPlacement.centerY, slot.width, slot.height,
                 movingPlacement.angleDegrees, vehicleKindForCar(animation.car), animation.car);
-            drawCarNameTag(g2, animation.car, movingPlacement.centerX, movingPlacement.centerY - 32);
         }
     }
 
@@ -446,7 +546,6 @@ public class ParkingLotScenePanel extends JPanel {
             SlotPlacement slot = slotPlacementFor(slotIndex, displaySlots);
             drawVehicle(g2, slot.centerX, slot.centerY, slot.width, slot.height,
                 slot.angleDegrees, vehicleKindForCar(car), car);
-            drawCarNameTag(g2, car, slot.centerX, slot.centerY - 32);
         }
     }
 
@@ -477,64 +576,216 @@ public class ParkingLotScenePanel extends JPanel {
     }
 
     private MovingPlacement incomingPlacementFor(SlotPlacement slot, double progress) {
-        double easedProgress = smoothStep(progress);
-        double entryX = 400;
-        double entryY = 782;
-
-        if (easedProgress < 0.62) {
-            double laneProgress = easedProgress / 0.62;
-            double y = interpolate(entryY, slot.centerY, smoothStep(laneProgress));
-            return new MovingPlacement(entryX, y, -90);
+        if (progress < 0.24) {
+            double laneProgress = smoothStep(progress / 0.24);
+            double x = interpolate(ENTRY_ROAD_START_X, ENTRY_TURN_START_X, laneProgress);
+            return new MovingPlacement(x, ENTRY_ROAD_Y, 0);
         }
 
-        double turnProgress = (easedProgress - 0.62) / 0.38;
-        double easedTurn = smoothStep(turnProgress);
-        double x = interpolate(entryX, slot.centerX, easedTurn);
-        double angle = interpolate(-90, slot.angleDegrees, easedTurn);
+        if (progress < 0.42) {
+            double turnProgress = smoothStep((progress - 0.24) / 0.18);
+            double x = interpolate(ENTRY_TURN_START_X, DRIVEWAY_CENTER_X, turnProgress);
+            double y = interpolate(ENTRY_ROAD_Y, DRIVEWAY_JOIN_Y, turnProgress);
+            double angle = interpolate(0, -90, turnProgress);
+            return new MovingPlacement(x, y, angle);
+        }
+
+        if (progress < 0.72) {
+            double driveProgress = smoothStep((progress - 0.42) / 0.30);
+            double y = interpolate(DRIVEWAY_JOIN_Y, slot.centerY, driveProgress);
+            return new MovingPlacement(DRIVEWAY_CENTER_X, y, -90);
+        }
+
+        double parkProgress = smoothStep((progress - 0.72) / 0.28);
+        double x = interpolate(DRIVEWAY_CENTER_X, slot.centerX, parkProgress);
+        double angle = interpolate(-90, slot.angleDegrees, parkProgress);
         return new MovingPlacement(x, slot.centerY, angle);
     }
 
     private MovingPlacement outgoingPlacementFor(SlotPlacement slot, double progress) {
-        double easedProgress = smoothStep(progress);
-        double laneX = 400;
-        double exitY = 782;
-
-        if (easedProgress < 0.42) {
-            double turnProgress = easedProgress / 0.42;
-            double easedTurn = smoothStep(turnProgress);
-            double x = interpolate(slot.centerX, laneX, easedTurn);
-            double angle = interpolate(slot.angleDegrees, 90, easedTurn);
+        if (progress < 0.28) {
+            double aisleTurnProgress = smoothStep(progress / 0.28);
+            double x = interpolate(slot.centerX, DRIVEWAY_CENTER_X, aisleTurnProgress);
+            double angle = interpolate(slot.angleDegrees, 90, aisleTurnProgress);
             return new MovingPlacement(x, slot.centerY, angle);
         }
 
-        double driveProgress = (easedProgress - 0.42) / 0.58;
-        double y = interpolate(slot.centerY, exitY, smoothStep(driveProgress));
-        return new MovingPlacement(laneX, y, 90);
+        if (progress < 0.58) {
+            double driveProgress = smoothStep((progress - 0.28) / 0.30);
+            double y = interpolate(slot.centerY, DRIVEWAY_JOIN_Y, driveProgress);
+            return new MovingPlacement(DRIVEWAY_CENTER_X, y, 90);
+        }
+
+        if (progress < 0.78) {
+            double turnProgress = smoothStep((progress - 0.58) / 0.20);
+            double x = interpolate(DRIVEWAY_CENTER_X, EXIT_TURN_END_X, turnProgress);
+            double y = interpolate(DRIVEWAY_JOIN_Y, EXIT_ROAD_Y, turnProgress);
+            double angle = interpolate(90, 0, turnProgress);
+            return new MovingPlacement(x, y, angle);
+        }
+
+        double roadProgress = smoothStep((progress - 0.78) / 0.22);
+        double x = interpolate(EXIT_TURN_END_X, EXIT_ROAD_END_X, roadProgress);
+        return new MovingPlacement(x, EXIT_ROAD_Y, 0);
     }
 
-    private void drawCarNameTag(Graphics2D g2, Car car, double centerX, double centerY) {
-        if (car == null) {
+    private void drawLotStateBanner(Graphics2D g2) {
+        if (!stats.isRunning()) {
+            drawLotBanner(g2, "SIMULATION STOPPED", "Start the workers to animate buffer activity.", STATE_STOPPED);
             return;
         }
 
-        String label = car.getDisplayName();
-        Graphics2D tag = (Graphics2D) g2.create();
-        tag.setFont(new Font("SansSerif", Font.BOLD, 11));
-        FontMetrics metrics = tag.getFontMetrics();
-        int textWidth = metrics.stringWidth(label);
-        int tagWidth = textWidth + 16;
-        int tagHeight = 18;
-        int x = (int) Math.round(centerX - (tagWidth * 0.5));
-        int y = (int) Math.round(centerY - tagHeight);
+        if (stats.getAvailableSlots() == 0) {
+            drawLotBanner(g2, "BUFFER FULL", producerWaitMessage(waitingProducerCount()), STATE_BLOCKED);
+        } else if (stats.getOccupied() == 0) {
+            drawLotBanner(g2, "BUFFER EMPTY", consumerWaitMessage(waitingConsumerCount()), STATE_WAITING);
+        }
+    }
 
-        tag.setColor(new Color(29, 40, 54, 210));
-        tag.fillRoundRect(x + 2, y + 2, tagWidth, tagHeight, 10, 10);
-        tag.setColor(new Color(250, 248, 244));
-        tag.fillRoundRect(x, y, tagWidth, tagHeight, 10, 10);
-        tag.setColor(new Color(47, 61, 80));
-        tag.drawRoundRect(x, y, tagWidth, tagHeight, 10, 10);
-        tag.drawString(label, x + 8, y + 13);
-        tag.dispose();
+    private void drawLotBanner(Graphics2D g2, String title, String detail, Color accent) {
+        Graphics2D banner = (Graphics2D) g2.create();
+        int width = 248;
+        int height = 44;
+        int x = (DESIGN_WIDTH - width) / 2;
+        int y = 94;
+
+        banner.setColor(new Color(255, 250, 242, 225));
+        banner.fillRoundRect(x, y, width, height, 16, 16);
+        banner.setColor(accent);
+        banner.setStroke(new BasicStroke(2f));
+        banner.drawRoundRect(x, y, width, height, 16, 16);
+
+        banner.setFont(new Font("SansSerif", Font.BOLD, 12));
+        FontMetrics titleMetrics = banner.getFontMetrics();
+        banner.drawString(title, x + (width - titleMetrics.stringWidth(title)) / 2, y + 17);
+
+        banner.setColor(new Color(72, 84, 96));
+        banner.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        FontMetrics detailMetrics = banner.getFontMetrics();
+        banner.drawString(detail, x + (width - detailMetrics.stringWidth(detail)) / 2, y + 33);
+        banner.dispose();
+    }
+
+    private void drawRoadStateIndicators(Graphics2D g2) {
+        int waitingOwners = waitingProducerCount();
+        int waitingGuards = waitingConsumerCount();
+
+        if (stats.isRunning() && waitingOwners > 0) {
+            drawEntryQueuePreview(g2, waitingOwners);
+            drawRoadHint(g2, 28, 694, producerWaitMessage(waitingOwners), STATE_WAITING);
+        }
+
+        if (stats.isRunning() && waitingGuards > 0) {
+            drawRoadHint(g2, 534, 694, consumerWaitMessage(waitingGuards), STATE_WAITING);
+        } else if (stats.isRunning() && stats.getOccupied() > 0) {
+            drawRoadHint(g2, 560, 694, stats.getOccupied() + " buffered cars ready to exit", STATE_OPEN);
+        }
+    }
+
+    private void drawEntryQueuePreview(Graphics2D g2, int waitingOwners) {
+        int visibleCars = Math.min(3, waitingOwners);
+        for (int index = 0; index < visibleCars; index++) {
+            Graphics2D queueCar = (Graphics2D) g2.create();
+            float alpha = Math.max(0.22f, 0.55f - (index * 0.12f));
+            queueCar.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            double centerX = 136 - (index * 66);
+            drawVehicle(queueCar, centerX, ENTRY_ROAD_Y, 68, 24, 0, VehicleKind.WHITE_SEDAN, null);
+            queueCar.dispose();
+        }
+
+        if (waitingOwners > visibleCars) {
+            drawQueueCounter(g2, 154, 739, "+" + (waitingOwners - visibleCars), STATE_WAITING);
+        }
+    }
+
+    private void drawQueueCounter(Graphics2D g2, int centerX, int centerY, String text, Color accent) {
+        Graphics2D bubble = (Graphics2D) g2.create();
+        bubble.setFont(new Font("SansSerif", Font.BOLD, 11));
+        FontMetrics metrics = bubble.getFontMetrics();
+        int width = metrics.stringWidth(text) + 16;
+        int height = 18;
+        int x = centerX - (width / 2);
+        int y = centerY - (height / 2);
+
+        bubble.setColor(new Color(250, 248, 244, 235));
+        bubble.fillRoundRect(x, y, width, height, 10, 10);
+        bubble.setColor(accent);
+        bubble.drawRoundRect(x, y, width, height, 10, 10);
+        bubble.drawString(text, x + 8, y + 13);
+        bubble.dispose();
+    }
+
+    private void drawRoadHint(Graphics2D g2, int x, int y, String text, Color accent) {
+        Graphics2D hint = (Graphics2D) g2.create();
+        hint.setFont(new Font("SansSerif", Font.BOLD, 11));
+        FontMetrics metrics = hint.getFontMetrics();
+        int width = metrics.stringWidth(text) + 18;
+        int height = 20;
+
+        hint.setColor(new Color(28, 37, 49, 170));
+        hint.fillRoundRect(x + 2, y + 2, width, height, 12, 12);
+        hint.setColor(new Color(248, 246, 241, 235));
+        hint.fillRoundRect(x, y, width, height, 12, 12);
+        hint.setColor(accent);
+        hint.drawRoundRect(x, y, width, height, 12, 12);
+        hint.drawString(text, x + 9, y + 14);
+        hint.dispose();
+    }
+
+    private void drawGateBadge(Graphics2D g2, int x, int y, String title, String detail, GateVisualState state) {
+        Graphics2D badge = (Graphics2D) g2.create();
+        Color accent = colorForGateState(state);
+        int width = 136;
+        int height = 30;
+
+        badge.setColor(new Color(251, 248, 242, 240));
+        badge.fillRoundRect(x, y, width, height, 14, 14);
+        badge.setColor(accent);
+        badge.setStroke(new BasicStroke(2f));
+        badge.drawRoundRect(x, y, width, height, 14, 14);
+
+        badge.setFont(new Font("SansSerif", Font.BOLD, 11));
+        badge.drawString(title, x + 10, y + 13);
+        badge.setColor(new Color(72, 84, 96));
+        badge.setFont(new Font("SansSerif", Font.PLAIN, 10));
+        badge.drawString(detail, x + 10, y + 24);
+        badge.dispose();
+    }
+
+    private void drawGateControl(Graphics2D g2, int x, int y, boolean entrySide, GateVisualState state) {
+        Graphics2D gate = (Graphics2D) g2.create();
+
+        gate.setColor(new Color(243, 208, 74));
+        gate.fillRoundRect(x, y + 18, 16, 40, 6, 6);
+        gate.setColor(LOT_OUTLINE);
+        gate.fillRoundRect(x + 5, y + 26, 6, 32, 4, 4);
+
+        gate.setColor(new Color(41, 48, 60));
+        gate.fillRoundRect(x + 20, y, 16, 38, 8, 8);
+        gate.setColor(lightColorFor(state, 0));
+        gate.fillOval(x + 24, y + 4, 8, 8);
+        gate.setColor(lightColorFor(state, 1));
+        gate.fillOval(x + 24, y + 15, 8, 8);
+        gate.setColor(lightColorFor(state, 2));
+        gate.fillOval(x + 24, y + 26, 8, 8);
+
+        gate.translate(x + (entrySide ? 14 : 2), y + 34);
+        gate.rotate(Math.toRadians(barrierAngleFor(state, entrySide)));
+        gate.setColor(new Color(250, 216, 81));
+        int armWidth = 58;
+        int armX = entrySide ? 0 : -armWidth;
+        gate.fillRoundRect(armX, -4, armWidth, 8, 8, 8);
+        gate.setColor(new Color(221, 86, 61));
+        for (int stripeX = armX + 7; stripeX < armX + armWidth - 8; stripeX += 16) {
+            Path2D stripe = new Path2D.Double();
+            stripe.moveTo(stripeX, -4);
+            stripe.lineTo(stripeX + 8, -4);
+            stripe.lineTo(stripeX + 14, 4);
+            stripe.lineTo(stripeX + 6, 4);
+            stripe.closePath();
+            gate.fill(stripe);
+        }
+        gate.dispose();
     }
 
     private double interpolate(double start, double end, double progress) {
@@ -553,7 +804,110 @@ public class ParkingLotScenePanel extends JPanel {
 
         g2.setColor(NOTE);
         g2.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        g2.drawString("The layout scales with the window, while Swing timers keep the road animation smooth.", 84, 58);
+        g2.drawString("Entry blocks when the buffer is full, and exit waits when the buffer is empty.", 84, 58);
+    }
+
+    private GateVisualState entryGateState() {
+        if (!stats.isRunning()) {
+            return GateVisualState.STOPPED;
+        }
+        if (stats.getAvailableSlots() == 0) {
+            return GateVisualState.BLOCKED;
+        }
+        return GateVisualState.OPEN;
+    }
+
+    private GateVisualState exitGateState() {
+        if (!stats.isRunning()) {
+            return GateVisualState.STOPPED;
+        }
+        if (stats.getOccupied() == 0) {
+            return GateVisualState.WAITING;
+        }
+        return GateVisualState.OPEN;
+    }
+
+    private String gateHeadline(GateVisualState state) {
+        return switch (state) {
+            case OPEN -> "OPEN";
+            case WAITING -> "WAIT";
+            case BLOCKED -> "BLOCKED";
+            case STOPPED -> "STOPPED";
+        };
+    }
+
+    private String entryGateDetail(int waitingOwners) {
+        if (!stats.isRunning()) {
+            return "Workers are idle";
+        }
+        if (stats.getAvailableSlots() == 0) {
+            return producerWaitMessage(waitingOwners);
+        }
+        return stats.getAvailableSlots() + " slots free";
+    }
+
+    private String exitGateDetail(int waitingGuards) {
+        if (!stats.isRunning()) {
+            return "Workers are idle";
+        }
+        if (stats.getOccupied() == 0) {
+            return consumerWaitMessage(waitingGuards);
+        }
+        return stats.getOccupied() + " cars buffered";
+    }
+
+    private String producerWaitMessage(int waitingOwners) {
+        return waitingOwners > 0 ? waitingOwners + " owners waiting" : "Producers blocked";
+    }
+
+    private String consumerWaitMessage(int waitingGuards) {
+        return waitingGuards > 0 ? waitingGuards + " guards waiting" : "Consumers waiting";
+    }
+
+    private double barrierAngleFor(GateVisualState state, boolean entrySide) {
+        if (state == GateVisualState.OPEN) {
+            return entrySide ? -58.0 : 58.0;
+        }
+        return 0.0;
+    }
+
+    private Color colorForGateState(GateVisualState state) {
+        return switch (state) {
+            case OPEN -> STATE_OPEN;
+            case WAITING -> STATE_WAITING;
+            case BLOCKED -> STATE_BLOCKED;
+            case STOPPED -> STATE_STOPPED;
+        };
+    }
+
+    private Color lightColorFor(GateVisualState state, int index) {
+        boolean activeRed = state == GateVisualState.BLOCKED || state == GateVisualState.STOPPED;
+        boolean activeAmber = state == GateVisualState.WAITING;
+        boolean activeGreen = state == GateVisualState.OPEN;
+
+        return switch (index) {
+            case 0 -> activeRed ? new Color(229, 95, 86) : new Color(92, 100, 110);
+            case 1 -> activeAmber ? new Color(234, 183, 67) : new Color(92, 100, 110);
+            default -> activeGreen ? new Color(70, 195, 104) : new Color(92, 100, 110);
+        };
+    }
+
+    private int waitingProducerCount() {
+        return countWorkersInState(stats.getProducerSnapshots(), WorkerState.WAITING);
+    }
+
+    private int waitingConsumerCount() {
+        return countWorkersInState(stats.getConsumerSnapshots(), WorkerState.WAITING);
+    }
+
+    private int countWorkersInState(List<WorkerSnapshot> workers, WorkerState state) {
+        int count = 0;
+        for (WorkerSnapshot worker : workers) {
+            if (worker.getState() == state) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private VehicleKind vehicleKindForCar(Car car) {
@@ -831,6 +1185,13 @@ public class ParkingLotScenePanel extends JPanel {
             this.centerY = centerY;
             this.angleDegrees = angleDegrees;
         }
+    }
+
+    private enum GateVisualState {
+        OPEN,
+        WAITING,
+        BLOCKED,
+        STOPPED
     }
 
     private enum VehicleKind {
