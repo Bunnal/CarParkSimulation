@@ -66,7 +66,8 @@ public class ParkingLotScenePanel extends JPanel {
     private static final int RIGHT_SLOT_CENTER_X = 604;
     private static final int SLOT_TOP = 108;
     private static final int SLOT_BOTTOM = 624;
-    private static final int DRIVEWAY_CENTER_X = 400;
+    private static final int ENTRY_DRIVEWAY_CENTER_X = 346;
+    private static final int EXIT_DRIVEWAY_CENTER_X = 454;
     private static final int DRIVEWAY_JOIN_Y = 694;
     private static final int ENTRY_ROAD_Y = 720;
     private static final int EXIT_ROAD_Y = 720;
@@ -77,10 +78,6 @@ public class ParkingLotScenePanel extends JPanel {
     private static final double INCOMING_PROGRESS_STEP = 0.018;
     private static final double OUTGOING_PROGRESS_STEP = 0.02;
     private static final double FOLLOWING_DISTANCE = 150.0;
-    private static final double INCOMING_SHARED_START = 0.24;
-    private static final double INCOMING_SHARED_END = 0.72;
-    private static final double OUTGOING_SHARED_START = 0.28;
-    private static final double OUTGOING_SHARED_END = 0.78;
 
     private final List<RoadCar> animatedCars;
     private final List<IncomingCarAnimation> incomingCars;
@@ -237,17 +234,12 @@ public class ParkingLotScenePanel extends JPanel {
 
     private void updateIncomingCars() {
         int displaySlots = calculateDisplaySlots();
-        boolean outgoingUsingSharedLane = hasOutgoingInSharedLane();
         MovingPlacement leaderPlacement = null;
         Iterator<IncomingCarAnimation> iterator = incomingCars.iterator();
         while (iterator.hasNext()) {
             IncomingCarAnimation animation = iterator.next();
             SlotPlacement slot = slotPlacementFor(animation.slotIndex, displaySlots);
             double targetProgress = Math.min(1.0, animation.progress + INCOMING_PROGRESS_STEP);
-            if (outgoingUsingSharedLane && animation.progress < INCOMING_SHARED_START
-                && targetProgress > INCOMING_SHARED_START) {
-                targetProgress = INCOMING_SHARED_START;
-            }
 
             animation.progress = resolveProgress(
                 animation.progress,
@@ -266,17 +258,12 @@ public class ParkingLotScenePanel extends JPanel {
 
     private void updateOutgoingCars() {
         int displaySlots = calculateDisplaySlots();
-        boolean incomingUsingSharedLane = hasIncomingInSharedLane();
         MovingPlacement leaderPlacement = null;
         Iterator<OutgoingCarAnimation> iterator = outgoingCars.iterator();
         while (iterator.hasNext()) {
             OutgoingCarAnimation animation = iterator.next();
             SlotPlacement slot = slotPlacementFor(animation.slotIndex, displaySlots);
             double targetProgress = Math.min(1.0, animation.progress + OUTGOING_PROGRESS_STEP);
-            if (incomingUsingSharedLane && animation.progress < OUTGOING_SHARED_START
-                && targetProgress > OUTGOING_SHARED_START) {
-                targetProgress = OUTGOING_SHARED_START;
-            }
 
             animation.progress = resolveProgress(
                 animation.progress,
@@ -315,24 +302,6 @@ public class ParkingLotScenePanel extends JPanel {
 
     private void removeIncomingAnimation(int carId) {
         incomingCars.removeIf(animation -> animation.car.getId() == carId);
-    }
-
-    private boolean hasIncomingInSharedLane() {
-        for (IncomingCarAnimation animation : incomingCars) {
-            if (animation.progress > INCOMING_SHARED_START && animation.progress < INCOMING_SHARED_END) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean hasOutgoingInSharedLane() {
-        for (OutgoingCarAnimation animation : outgoingCars) {
-            if (animation.progress > OUTGOING_SHARED_START && animation.progress < OUTGOING_SHARED_END) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private double resolveProgress(double currentProgress, double targetProgress,
@@ -449,19 +418,39 @@ public class ParkingLotScenePanel extends JPanel {
         GateVisualState exitState = exitGateState();
         int waitingOwners = waitingProducerCount();
         int waitingGuards = waitingConsumerCount();
+        int laneY = 625;
+        int laneWidth = 92;
+        int laneHeight = 75;
+        int entryLaneX = 300;
+        int exitLaneX = 408;
 
         g2.setColor(ASPHALT);
-        g2.fillRect(300, 625, 200, 75);
+        g2.fillRect(entryLaneX, laneY, laneWidth, laneHeight);
+        g2.fillRect(exitLaneX, laneY, laneWidth, laneHeight);
 
         g2.setColor(LOT_OUTLINE);
         g2.setStroke(new BasicStroke(7f));
-        g2.drawRect(300, 625, 200, 75);
+        g2.drawRect(entryLaneX, laneY, laneWidth, laneHeight);
+        g2.drawRect(exitLaneX, laneY, laneWidth, laneHeight);
+
+        g2.setColor(new Color(66, 78, 97));
+        g2.fillRoundRect(392, 624, 16, 78, 8, 8);
 
         g2.setColor(ROAD_EDGE);
-        g2.fillRect(300, 622, 200, 18);
+        g2.fillRect(entryLaneX, 622, laneWidth, 18);
+        g2.fillRect(exitLaneX, 622, laneWidth, 18);
 
         g2.setColor(LANE_MARK);
-        for (int x = 308; x < 486; x += 20) {
+        for (int x = entryLaneX + 8; x < entryLaneX + laneWidth - 8; x += 20) {
+            Path2D stripe = new Path2D.Double();
+            stripe.moveTo(x, 638);
+            stripe.lineTo(x + 8, 626);
+            stripe.lineTo(x + 15, 626);
+            stripe.lineTo(x + 7, 638);
+            stripe.closePath();
+            g2.fill(stripe);
+        }
+        for (int x = exitLaneX + 8; x < exitLaneX + laneWidth - 8; x += 20) {
             Path2D stripe = new Path2D.Double();
             stripe.moveTo(x, 638);
             stripe.lineTo(x + 8, 626);
@@ -471,18 +460,49 @@ public class ParkingLotScenePanel extends JPanel {
             g2.fill(stripe);
         }
 
+        drawDrivewayArrow(g2, ENTRY_DRIVEWAY_CENTER_X, 647, true);
+        drawDrivewayArrow(g2, ENTRY_DRIVEWAY_CENTER_X, 676, true);
+        drawDrivewayArrow(g2, EXIT_DRIVEWAY_CENTER_X, 647, false);
+        drawDrivewayArrow(g2, EXIT_DRIVEWAY_CENTER_X, 676, false);
+
         g2.setColor(new Color(250, 248, 244));
-        g2.fill(new Ellipse2D.Double(353, 645, 40, 40));
+        g2.fill(new Ellipse2D.Double(380, 645, 40, 40));
         g2.setColor(LOT_OUTLINE);
         g2.setStroke(new BasicStroke(3f));
-        g2.draw(new Ellipse2D.Double(353, 645, 40, 40));
+        g2.draw(new Ellipse2D.Double(380, 645, 40, 40));
         g2.setFont(new Font("SansSerif", Font.BOLD, 30));
-        g2.drawString("P", 365, 676);
+        g2.drawString("P", 392, 676);
 
         drawGateBadge(g2, 194, 590, "ENTRY " + gateHeadline(entryState), entryGateDetail(waitingOwners), entryState);
         drawGateBadge(g2, 470, 590, "EXIT " + gateHeadline(exitState), exitGateDetail(waitingGuards), exitState);
         drawGateControl(g2, 282, 646, true, entryState);
         drawGateControl(g2, 506, 646, false, exitState);
+    }
+
+    private void drawDrivewayArrow(Graphics2D g2, int centerX, int centerY, boolean upward) {
+        Graphics2D arrow = (Graphics2D) g2.create();
+        arrow.setColor(new Color(236, 242, 248, 205));
+        arrow.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+        if (upward) {
+            arrow.drawLine(centerX, centerY + 10, centerX, centerY - 10);
+            Path2D head = new Path2D.Double();
+            head.moveTo(centerX, centerY - 15);
+            head.lineTo(centerX - 7, centerY - 4);
+            head.lineTo(centerX + 7, centerY - 4);
+            head.closePath();
+            arrow.fill(head);
+        } else {
+            arrow.drawLine(centerX, centerY - 10, centerX, centerY + 10);
+            Path2D head = new Path2D.Double();
+            head.moveTo(centerX, centerY + 15);
+            head.lineTo(centerX - 7, centerY + 4);
+            head.lineTo(centerX + 7, centerY + 4);
+            head.closePath();
+            arrow.fill(head);
+        }
+
+        arrow.dispose();
     }
 
     private void drawRoad(Graphics2D g2) {
@@ -584,7 +604,7 @@ public class ParkingLotScenePanel extends JPanel {
 
         if (progress < 0.42) {
             double turnProgress = smoothStep((progress - 0.24) / 0.18);
-            double x = interpolate(ENTRY_TURN_START_X, DRIVEWAY_CENTER_X, turnProgress);
+            double x = interpolate(ENTRY_TURN_START_X, ENTRY_DRIVEWAY_CENTER_X, turnProgress);
             double y = interpolate(ENTRY_ROAD_Y, DRIVEWAY_JOIN_Y, turnProgress);
             double angle = interpolate(0, -90, turnProgress);
             return new MovingPlacement(x, y, angle);
@@ -593,11 +613,11 @@ public class ParkingLotScenePanel extends JPanel {
         if (progress < 0.72) {
             double driveProgress = smoothStep((progress - 0.42) / 0.30);
             double y = interpolate(DRIVEWAY_JOIN_Y, slot.centerY, driveProgress);
-            return new MovingPlacement(DRIVEWAY_CENTER_X, y, -90);
+            return new MovingPlacement(ENTRY_DRIVEWAY_CENTER_X, y, -90);
         }
 
         double parkProgress = smoothStep((progress - 0.72) / 0.28);
-        double x = interpolate(DRIVEWAY_CENTER_X, slot.centerX, parkProgress);
+        double x = interpolate(ENTRY_DRIVEWAY_CENTER_X, slot.centerX, parkProgress);
         double angle = interpolate(-90, slot.angleDegrees, parkProgress);
         return new MovingPlacement(x, slot.centerY, angle);
     }
@@ -605,7 +625,7 @@ public class ParkingLotScenePanel extends JPanel {
     private MovingPlacement outgoingPlacementFor(SlotPlacement slot, double progress) {
         if (progress < 0.28) {
             double aisleTurnProgress = smoothStep(progress / 0.28);
-            double x = interpolate(slot.centerX, DRIVEWAY_CENTER_X, aisleTurnProgress);
+            double x = interpolate(slot.centerX, EXIT_DRIVEWAY_CENTER_X, aisleTurnProgress);
             double angle = interpolate(slot.angleDegrees, 90, aisleTurnProgress);
             return new MovingPlacement(x, slot.centerY, angle);
         }
@@ -613,12 +633,12 @@ public class ParkingLotScenePanel extends JPanel {
         if (progress < 0.58) {
             double driveProgress = smoothStep((progress - 0.28) / 0.30);
             double y = interpolate(slot.centerY, DRIVEWAY_JOIN_Y, driveProgress);
-            return new MovingPlacement(DRIVEWAY_CENTER_X, y, 90);
+            return new MovingPlacement(EXIT_DRIVEWAY_CENTER_X, y, 90);
         }
 
         if (progress < 0.78) {
             double turnProgress = smoothStep((progress - 0.58) / 0.20);
-            double x = interpolate(DRIVEWAY_CENTER_X, EXIT_TURN_END_X, turnProgress);
+            double x = interpolate(EXIT_DRIVEWAY_CENTER_X, EXIT_TURN_END_X, turnProgress);
             double y = interpolate(DRIVEWAY_JOIN_Y, EXIT_ROAD_Y, turnProgress);
             double angle = interpolate(90, 0, turnProgress);
             return new MovingPlacement(x, y, angle);

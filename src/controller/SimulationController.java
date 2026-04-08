@@ -14,10 +14,10 @@ import model.Producer;
 public class SimulationController {
 
     private static final int DEFAULT_CAPACITY = 12;
-    private static final int DEFAULT_PRODUCER_COUNT = 3;
-    private static final int DEFAULT_CONSUMER_COUNT = 2;
-    private static final int DEFAULT_PRODUCTION_RATE_MS = 850;
-    private static final int DEFAULT_CONSUMPTION_RATE_MS = 1300;
+    private static final int DEFAULT_PRODUCER_COUNT = 2;
+    private static final int DEFAULT_CONSUMER_COUNT = 1;
+    private static final int DEFAULT_PRODUCTION_RATE_MS = 1250;
+    private static final int DEFAULT_CONSUMPTION_RATE_MS = 750;
     private static final long JOIN_TIMEOUT_MS = 800L;
 
     private final List<Producer> producers;
